@@ -376,13 +376,13 @@ static void handle_close_tab(GtkButton *b, struct output_panel *p)
 	gtk_widget_destroy(p->panel);
 }
 
-static void handle_name_change(GtkEntry *e, struct main_window *w)
+static void handle_name_change(GtkComboBoxText *e, struct main_window *w)
 {
 	int p = gtk_notebook_get_current_page(GTK_NOTEBOOK(w->notebook));
 	GtkWidget *panel = gtk_notebook_get_nth_page(GTK_NOTEBOOK(w->notebook), p);
 	GtkLabel *label = g_object_get_data(G_OBJECT(panel), "tab-label");
 	free( g_object_get_data(G_OBJECT(panel), "tab-name") );
-	char *name = (char *)gtk_entry_get_text(e);
+	char *name = (char *)gtk_combo_box_text_get_active_text(e);
 	name = blank_string(name) ? NULL : strdup(name);
 	g_object_set_data(G_OBJECT(panel), "tab-name", name);
 	gtk_label_set_text(label, name ? name : "Snapshot");
@@ -908,6 +908,18 @@ static void init_signal_dialog(struct main_window *w)
 #endif
 }
 
+static void
+fill_current_snapshot_entry (GtkWidget *combo)
+{
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "DU");
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "DD");
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CU");
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CD");
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CL");
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CR");
+	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "12U");
+}
+
 /* Set up the main window and populate with widgets */
 static void init_main_window(struct main_window *w)
 {
@@ -991,7 +1003,9 @@ static void init_main_window(struct main_window *w)
 
 	// Snapshot name field
 	GtkWidget *name_label = gtk_label_new("Current snapshot:");
-	w->snapshot_name_entry = gtk_entry_new();
+	w->snapshot_name_entry = gtk_combo_box_text_new_with_entry ();
+	fill_current_snapshot_entry(w->snapshot_name_entry);
+
 	w->snapshot_name = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 	gtk_box_pack_start(GTK_BOX(w->snapshot_name), name_label, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(w->snapshot_name), w->snapshot_name_entry, FALSE, FALSE, 0);
