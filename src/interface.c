@@ -405,6 +405,19 @@ static GtkWidget *image_from_file(char *filename)
 }
 #endif
 
+static GtkWidget *make_analytics_tab_label()
+{
+	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+
+	GtkWidget *label = gtk_label_new("Analytics");
+
+	gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 5);
+
+	gtk_widget_show_all(hbox);
+
+	return hbox;
+}
+
 static GtkWidget *make_tab_label(char *name, struct output_panel *panel_to_close)
 {
 	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -443,8 +456,11 @@ static void add_new_tab(struct snapshot *s, char *name, struct main_window *w)
 	op_set_border(w->active_panel, 5);
 	gtk_notebook_set_show_tabs(GTK_NOTEBOOK(w->notebook), TRUE);
 	gtk_notebook_set_show_border(GTK_NOTEBOOK(w->notebook), TRUE);
-	gtk_notebook_append_page(GTK_NOTEBOOK(w->notebook), op->panel, label);
+
+  gint pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(w->notebook));
+	gtk_notebook_insert_page(GTK_NOTEBOOK(w->notebook), op->panel, label, pages - 1);
 	gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(w->notebook), op->panel, TRUE);
+
 	gtk_widget_set_sensitive(w->save_all_item, TRUE);
 	gtk_widget_set_sensitive(w->close_all_item, TRUE);
 }
@@ -724,6 +740,13 @@ static void handle_layout(GtkCheckMenuItem *b, struct main_window *w)
 	}
 }
 
+static void handle_analysis_tab(GtkCheckMenuItem *b, struct main_window *w)
+{
+	const bool analysis_tab = gtk_check_menu_item_get_active(b) == TRUE;
+
+	w->analysis_tab = analysis_tab;
+}
+
 /* Add a checkbox with name to the given menu, with initial state active and
  * attach the supplied callback and parameter to the toggled signal.  Set is set
  * before attaching the signal, so the callback is not called when created.  */
@@ -909,15 +932,12 @@ static void init_signal_dialog(struct main_window *w)
 }
 
 static void
-fill_current_snapshot_entry (GtkWidget *combo)
+fill_current_snapshot_entry (GtkWidget *combo, gchar* const* positions, gsize positions_size)
 {
-	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "DU");
-	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "DD");
-	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CU");
-	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CD");
-	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CL");
-	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "CR");
-	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), "12U");
+  gsize i;
+  for(i = 0; i<positions_size; i++) {
+    gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), positions[i]);
+  }
 }
 
 /* Set up the main window and populate with widgets */
@@ -1004,7 +1024,7 @@ static void init_main_window(struct main_window *w)
 	// Snapshot name field
 	GtkWidget *name_label = gtk_label_new("Current snapshot:");
 	w->snapshot_name_entry = gtk_combo_box_text_new_with_entry ();
-	fill_current_snapshot_entry(w->snapshot_name_entry);
+	fill_current_snapshot_entry(w->snapshot_name_entry, w->positions, w->positions_size);
 
 	w->snapshot_name = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 	gtk_box_pack_start(GTK_BOX(w->snapshot_name), name_label, FALSE, FALSE, 0);
@@ -1049,6 +1069,9 @@ static void init_main_window(struct main_window *w)
 	// Layout checkbox
 	add_checkbox(command_menu, "Vertical", w->vertical_layout, G_CALLBACK(handle_layout), w);
 
+	// Analysis checkbox
+	add_checkbox(command_menu, "Analysis", w->analysis_tab, G_CALLBACK(handle_analysis_tab), w);
+
 	gtk_menu_shell_append(GTK_MENU_SHELL(command_menu), gtk_separator_menu_item_new());
 
 	add_menu_item(command_menu, "Signal", true, G_CALLBACK(signal_dialog_show), w);
@@ -1081,6 +1104,10 @@ static void init_main_window(struct main_window *w)
 	GtkWidget *tab_label = make_tab_label(NULL, NULL);
 	gtk_notebook_append_page(GTK_NOTEBOOK(w->notebook), w->active_panel->panel, tab_label);
 	gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(w->notebook), w->active_panel->panel, TRUE);
+ 
+	// The Analytics tab
+	GtkWidget *analytics_tab_label = make_analytics_tab_label();
+	gtk_notebook_append_page(GTK_NOTEBOOK(w->notebook), w->active_panel->panel, analytics_tab_label);
 
 	init_signal_dialog(w);
 
@@ -1156,6 +1183,16 @@ static void computer_callback(void *w)
 	gdk_threads_add_idle((GSourceFunc)refresh,w);
 }
 
+gchar * default_positions[] = {
+  "DU",
+  "DD",
+  "PU",
+  "PD",
+  "PL",
+  "PR",
+  (gchar*)NULL,
+};
+
 static void start_interface(GApplication* app, void *p)
 {
 	UNUSED(p);
@@ -1176,6 +1213,9 @@ static void start_interface(GApplication* app, void *p)
 	w->audio_device = -1;
 	w->audio_rate = 0;
 	w->hpf_freq = FILTER_CUTOFF;
+
+  w->positions = default_positions;
+  w->positions_size = (sizeof(default_positions) / sizeof(gchar*)) - 1;
 
 	load_config(w);
 

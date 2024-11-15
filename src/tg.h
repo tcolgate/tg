@@ -26,6 +26,7 @@
 #include <complex.h>
 #include <fftw3.h>
 #include <stdarg.h>
+#include <glib.h>
 #include <gtk/gtk.h>
 #include <pthread.h>
 
@@ -335,6 +336,10 @@ struct output_panel {
 	struct snapshot *snst;
 };
 
+struct analysis_panel {
+	GtkWidget *panel;
+};
+
 void initialize_palette();
 struct output_panel *init_output_panel(struct computer *comp, struct snapshot *snst, int border, bool vertical_layout);
 void set_panel_layout(struct output_panel *op, bool vertical);
@@ -397,6 +402,7 @@ struct main_window {
 	bool do_tppm;	//!< Peak meter is enabled
 
 	bool vertical_layout;
+	bool analysis_tab;
 
 	GKeyFile *config_file;
 	gchar *config_file_name;
@@ -404,6 +410,11 @@ struct main_window {
 
 	guint kick_timeout;
 	guint save_timeout;
+
+  gchar* const* positions;
+  gsize   positions_size;
+
+	struct analysis_panel *analysis_panel;
 };
 
 extern int preset_bph[];
@@ -432,8 +443,11 @@ void audio_setup(GtkMenuItem *m, struct main_window *w);
 	OP(highpass_cutoff_freq, hpf_freq, int)
 
 struct conf_data {
-#define DEF(NAME,PLACE,TYPE) TYPE PLACE;
+#define DEF(NAME,PLACE,TYPE,...) TYPE PLACE;
 	CONFIG_FIELDS(DEF)
+
+  gchar * const*  positions;
+	gsize positions_size;
 };
 
 void load_config(struct main_window *w);

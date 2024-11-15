@@ -144,6 +144,9 @@ void load_config(struct main_window *w)
 
 	CONFIG_FIELDS(SETUP);
 
+  w -> conf_data -> positions = w -> positions;
+  w -> conf_data -> positions_size = w -> positions_size;
+
 	debug("Config: loading configuration file %s\n", w->config_file_name);
 	gboolean ret = g_key_file_load_from_file(w->config_file, w->config_file_name, G_KEY_FILE_KEEP_COMMENTS, NULL);
 	if(!ret) {
@@ -165,6 +168,24 @@ void load_config(struct main_window *w)
 	}
 
 	CONFIG_FIELDS(LOAD);
+
+	{
+		GError *e = NULL;
+    gsize positions_size = 0;
+		gchar** val = g_key_file_get_string_list (w->config_file, "tg", "positions", &positions_size, &e);
+		if(e) {
+			debug("Config: error loading field " #NAME "\n");
+			g_error_free(e);
+		} else {
+      if(positions_size > 0){
+        w -> positions = val;
+        w -> positions_size = positions_size;
+        w -> conf_data -> positions = val;
+        w -> conf_data -> positions_size = w->positions_size;
+      }
+		}
+	}
+
 	load_filter_chain(w);
 }
 
@@ -180,6 +201,8 @@ void save_config(struct main_window *w)
 
 	save_filter_chain(w);
 	CONFIG_FIELDS(SAVE);
+
+  g_key_file_set_string_list(w->config_file, "tg", "positions", (const gchar * const*) w -> positions, w -> positions_size);
 
 #ifdef DEBUG
 	GError *ge = NULL;
@@ -199,6 +222,16 @@ void save_on_change(struct main_window *w)
 {
 #define CHANGED(NAME,PLACE,TYPE) \
 	if(w -> PLACE != w -> conf_data -> PLACE) { \
+		save_config(w); \
+		return; \
+	}
+
+	if(w -> positions != w -> conf_data -> positions) { \
+		save_config(w); \
+		return; \
+	}
+
+	if(w -> positions_size != w -> conf_data -> positions_size) { \
 		save_config(w); \
 		return; \
 	}
