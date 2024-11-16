@@ -348,15 +348,30 @@ static void handle_tab_changed(GtkNotebook *nbk, GtkWidget *panel, guint x,
   gtk_widget_set_sensitive(w->save_item, !snap->calibrate && snap->pb);
 }
 
+static void handle_tab_added(GtkNotebook *nbk, GtkWidget *panel, guint x,
+                              struct main_window *w) {
+  UNUSED(x);
+  gint pages = gtk_notebook_get_n_pages(nbk);
+  if (pages >= 4) {
+    gtk_widget_show(GTK_WIDGET(w->analysis_panel->panel));
+  };
+}
+
 static void handle_tab_closed(GtkNotebook *nbk, GtkWidget *panel, guint x,
                               struct main_window *w) {
   UNUSED(x);
-  if (gtk_notebook_get_n_pages(nbk) == 1 && !w->zombie) {
+  gint pages = gtk_notebook_get_n_pages(nbk);
+  if (pages < 4) {
+    gtk_widget_hide(GTK_WIDGET(w->analysis_panel->panel));
+  };
+
+  if (pages == 2 && !w->zombie) {
     gtk_notebook_set_show_tabs(GTK_NOTEBOOK(nbk), FALSE);
     gtk_notebook_set_show_border(GTK_NOTEBOOK(nbk), FALSE);
     gtk_widget_set_sensitive(w->save_all_item, FALSE);
     gtk_widget_set_sensitive(w->close_all_item, FALSE);
   }
+
   // Now, are we sure that we are not going to segfault?
   struct output_panel *op = g_object_get_data(G_OBJECT(panel), "op-pointer");
   if (op)
@@ -613,7 +628,7 @@ static void close_all(GtkMenuItem *m, struct main_window *w) {
   while (i < gtk_notebook_get_n_pages(GTK_NOTEBOOK(w->notebook))) {
     GtkWidget *tab = gtk_notebook_get_nth_page(GTK_NOTEBOOK(w->notebook), i);
     struct output_panel *op = g_object_get_data(G_OBJECT(tab), "op-pointer");
-    if (!op) { // This one is the real-time tab
+    if (!op) { // This one is the real-time  or analytics tab
       i++;
       continue;
     }
@@ -1119,8 +1134,8 @@ static void init_main_window(struct main_window *w) {
   gtk_notebook_set_scrollable(GTK_NOTEBOOK(w->notebook), TRUE);
   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(w->notebook), FALSE);
   gtk_notebook_set_show_border(GTK_NOTEBOOK(w->notebook), FALSE);
-  g_signal_connect(w->notebook, "page-removed", G_CALLBACK(handle_tab_closed),
-                   w);
+  g_signal_connect(w->notebook, "page-added", G_CALLBACK(handle_tab_added), w);
+  g_signal_connect(w->notebook, "page-removed", G_CALLBACK(handle_tab_closed), w);
   g_signal_connect_after(w->notebook, "switch-page",
                          G_CALLBACK(handle_tab_changed), w);
 
@@ -1132,8 +1147,11 @@ static void init_main_window(struct main_window *w) {
                                    w->active_panel->panel, TRUE);
 
   // The Analytics tab
+  w->analysis_panel = calloc(1, sizeof(struct analysis_panel));
+  GtkWidget *avbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+  w->analysis_panel->panel = avbox;
   GtkWidget *analytics_tab_label = make_analytics_tab_label();
-  gtk_notebook_append_page(GTK_NOTEBOOK(w->notebook), w->active_panel->panel,
+  gtk_notebook_append_page(GTK_NOTEBOOK(w->notebook), w->analysis_panel->panel,
                            analytics_tab_label);
 
   init_signal_dialog(w);
@@ -1141,6 +1159,7 @@ static void init_main_window(struct main_window *w) {
   // gtk_window_maximize(GTK_WINDOW(w->window));
   gtk_widget_show_all(w->window);
   gtk_widget_hide(w->snapshot_name);
+  gtk_widget_hide(GTK_WIDGET(w->analysis_panel->panel));
   gtk_window_set_focus(GTK_WINDOW(w->window), NULL);
 }
 
