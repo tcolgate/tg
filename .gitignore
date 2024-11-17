@@ -53,3 +53,7 @@ Makefile.in
 # build directories
 /deb
 /msi
+
+# tags files
+tags
+TAGS
